@@ -1,3 +1,5 @@
+# Utility to merge river cells with river_explode
+
 import arcpy
 from collections import defaultdict
 import os, shutil

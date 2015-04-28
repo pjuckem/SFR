@@ -536,6 +536,11 @@ class SFRdata(object):
         Returns
         -------
         dataframe containing node number, segment, reach, and geometry for each SFR reach.
+
+        Notes
+        -----
+        This method is really slow for large models, and should be done only once if needed. Subsequently,
+        a revised linework shapefile with segment and reach information can be used.
         """
 
         print "Adding segment and reach information to linework shapefile..."
@@ -577,17 +582,22 @@ class SFRdata(object):
                                         np.array([nd != n for nd in df.node])].index
 
                     # handle collocated geometries that do not touch other segments
-                    if len(intersects_ind) == 0:
-                        geoms_entirely_within_node.append(rg)
-                        continue
+                    #if len(intersects_ind) == 0:
+                    #    geoms_entirely_within_node.append(rg)
+                    #    continue
 
                     intersects_df = df.ix[intersects_ind]
                     intersects_segments = intersects_df.segment.tolist()
+                    dfs_segment = dfs.ix[dfs.segment.isin(intersects_segments)]
+
+                    # handle collocated geometries that do not touch other segments
+                    if len(intersects_ind) == 0 or len(dfs_segment) == 0:
+                        geoms_entirely_within_node.append(rg)
+                        continue
 
                     # get the index of the collocated reach that is closest to the intersecting reach number(s)
                     # (handles cases where a segment meanders out of and then back into a cell)
                     # only consider reaches that have the same segment as those intersected
-                    dfs_segment = dfs.ix[dfs.segment.isin(intersects_segments)]
                     closest_reach_in_dfs_index = dfs_segment.index[np.argmin([np.sum(np.abs(r - intersects_df.reach))
                                                                    for r in dfs_segment.reach])]
 
@@ -597,7 +607,7 @@ class SFRdata(object):
 
                 # in case there was a geometry entirely contained within the cell
                 # (hopefully there is only one)
-                if len(geoms_entirely_within_node) == 1:
+                if len(geoms_entirely_within_node) == 1 and len(dfs.index[~dfs.index.isin(assigned)]) > 0:
                     ind = dfs.index[~dfs.index.isin(assigned)][0]
                     df.loc[ind, 'geometry'] = geoms_entirely_within_node[0]
 
